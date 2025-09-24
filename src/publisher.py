@@ -1,35 +1,27 @@
-# src/publisher.py
-from __future__ import annotations
 import time
-from src.sensors import TemperatureSensor, HumiditySensor, ProximitySensor
-from src.mqtt_io import make_client
-from src.utils import load_config, to_json, ts
- 
-def main():
-    cfg = load_config()
-    client = make_client("publisher", cfg["broker"], cfg["port"], cfg["username"], cfg["password"])
+import json
+from src.utils import get_config
+from src.mqtt_io import create_client
+from src.sensors import read_all
+
+def run_publisher():
+    config = get_config()
+    client = create_client(config, client_id="publisher")
     client.loop_start()
- 
-    temp = TemperatureSensor()
-    hum = HumiditySensor()
-    prox = ProximitySensor()
- 
+
     try:
         while True:
-            payloads = [
-                (f"{cfg['base_topic']}/temp", {"t": ts(), "type":"temperature", "unit":"C", "v":1, "value": temp.read()}),
-                (f"{cfg['base_topic']}/hum",  {"t": ts(), "type":"humidity",    "unit":"%", "v":1, "value": hum.read()}),
-                (f"{cfg['base_topic']}/prox", {"t": ts(), "type":"proximity",   "unit":"cm","v":1, "value": prox.read()}),
-            ]
-            for topic, data in payloads:
-                client.publish(topic, to_json(data), qos=0, retain=False)
-                print(f"PUB {topic}: {data}")
-            time.sleep(cfg["interval"])
+            data = read_all()
+            for key, value in data.items():
+                topic = f"{config['base_topic']}/{key}"
+                client.publish(topic, json.dumps({"value": value}))
+                print(f"Publicado {value} en {topic}")
+            time.sleep(config["interval"])
     except KeyboardInterrupt:
-        pass
+        print("Publisher detenido")
     finally:
         client.loop_stop()
         client.disconnect()
- 
+
 if __name__ == "__main__":
-    main()
+    run_publisher()
