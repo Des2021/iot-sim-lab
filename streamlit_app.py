@@ -1,31 +1,31 @@
 import streamlit as st
-import pandas as pd
 import time
-from src.utils.config import get_config
-import paho.mqtt.client as mqtt
+from src.publisher import run_publisher
+from src.subscriber_plot import Subscriber
 
-st.title("🌡️ IoT Lab – MQTT Dashboard")
+st.set_page_config(page_title="IoT Sim Lab", layout="wide")
+st.title("🔌 IoT Simulation Lab")
 
-config = get_config()
-st.write("🔗 Connected to broker:", config["MQTT_BROKER"])
+st.sidebar.header("Controles")
+mode = st.sidebar.radio("Selecciona modo", ["Publisher", "Subscriber"])
 
-data = []
+if mode == "Publisher":
+    st.write("📡 Modo Publisher: enviando datos de sensores al broker MQTT...")
+    st.info("Ejecuta en local para pruebas continuas. En la nube puede quedarse corriendo indefinidamente.")
+    if st.button("Iniciar Publisher"):
+        run_publisher()
 
-def on_message(client, userdata, msg):
-    payload = msg.payload.decode()
-    timestamp = time.strftime("%H:%M:%S")
-    data.append({"time": timestamp, "topic": msg.topic, "value": payload})
+elif mode == "Subscriber":
+    st.write("📊 Modo Subscriber: recibiendo datos desde el broker MQTT...")
+    sub = Subscriber()
+    sub.start()
 
-client = mqtt.Client(client_id="streamlit_sub")
-client.on_message = on_message
-client.connect(config["MQTT_BROKER"], config["MQTT_PORT"], 60)
-client.subscribe(f"{config['MQTT_BASE_TOPIC']}/#")
-client.loop_start()
-
-placeholder = st.empty()
-
-while True:
-    if data:
-        df = pd.DataFrame(data)
-        placeholder.dataframe(df.tail(20), use_container_width=True)
-    time.sleep(1)
+    placeholder = st.empty()
+    try:
+        while True:
+            fig = sub.plot()
+            if fig:
+                placeholder.pyplot(fig)
+            time.sleep(2)
+    except KeyboardInterrupt:
+        sub.stop()
