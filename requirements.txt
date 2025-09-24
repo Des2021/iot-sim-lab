@@ -1,5 +1,5 @@
-paho-mqtt
-matplotlib
-pandas
-python-dotenv
-streamlit
+paho-mqtt==1.6.1
+matplotlib==3.8.4
+pandas==2.2.2
+streamlit==1.38.0
+python-dotenv==1.0.1   # útil solo en local
